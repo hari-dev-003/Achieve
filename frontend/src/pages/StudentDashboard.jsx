@@ -11,16 +11,16 @@ const StatusBadge = ({ status }) => {
     let colorClasses = "";
     switch (status) {
         case 'verified':
-            colorClasses = "bg-green-500/30 text-green-300";
+            colorClasses = "bg-green-500/30 text-green-700";
             break;
         case 'pending':
-            colorClasses = "bg-yellow-500/30 text-yellow-300";
+            colorClasses = "bg-yellow-500/30 text-yellow-600";
             break;
         case 'rejected':
-            colorClasses = "bg-red-500/30 text-red-300";
+            colorClasses = "bg-red-500/30 text-red-700";
             break;
         default:
-            colorClasses = "bg-gray-500/30 text-gray-300";
+            colorClasses = "bg-gray-500/30 text-gray-700";
     }
     return <span className={`${baseClasses} ${colorClasses}`}>{status.toUpperCase()}</span>;
 };

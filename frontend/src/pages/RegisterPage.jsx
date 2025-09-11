@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
@@ -14,6 +14,26 @@ const RegisterPage = () => {
     const navigate = useNavigate();
     const auth = getAuth();
     const db = getFirestore();
+
+    useEffect(() => {
+        // Entrance Animation
+        const timeline = window.anime.timeline({
+            easing: 'easeOutExpo',
+        });
+
+        timeline.add({
+            targets: '.register-header',
+            translateY: [-30, 0],
+            opacity: [0, 1],
+            duration: 800,
+            delay: window.anime.stagger(100)
+        }).add({
+            targets: '.register-card',
+            translateY: [30, 0],
+            opacity: [0, 1],
+            duration: 800,
+        }, '-=600');
+    }, []);
 
     const handleRegister = async (e) => {
         e.preventDefault();
@@ -52,7 +72,6 @@ const RegisterPage = () => {
             
             toast.success('Account created successfully!', { id: toastId });
             
-            // Navigate to the correct dashboard after registration
             navigate(role === 'student' ? '/student-dashboard' : '/faculty-dashboard');
 
         } catch (error) {
@@ -63,13 +82,13 @@ const RegisterPage = () => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 p-4 overflow-hidden">
             <div className="w-full max-w-md">
                 <div className="text-center mb-8">
-                    <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">Create an Account</h1>
-                    <p className="text-md text-cyan-400">Join the Smart Student Hub</p>
+                    <h1 className="register-header text-4xl md:text-5xl font-bold text-white mb-3 opacity-0">Create an Account</h1>
+                    <p className="register-header text-md text-cyan-400 opacity-0">Join the Smart Student Hub</p>
                 </div>
-                <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl">
+                <div className="register-card bg-gray-800 p-8 rounded-2xl shadow-2xl opacity-0">
                     <form onSubmit={handleRegister} className="space-y-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">I am a...</label>
@@ -110,3 +129,4 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
+

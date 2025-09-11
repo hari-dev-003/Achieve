@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
@@ -12,6 +12,27 @@ const LoginPage = () => {
     const navigate = useNavigate();
     const auth = getAuth();
     const db = getFirestore();
+
+    useEffect(() => {
+        // Entrance Animation using the global anime function
+        const timeline = window.anime.timeline({
+            easing: 'easeOutExpo',
+        });
+
+        timeline.add({
+            targets: '.login-header',
+            translateY: [-30, 0],
+            opacity: [0, 1],
+            duration: 800,
+            delay: window.anime.stagger(100)
+        }).add({
+            targets: '.login-card',
+            translateY: [30, 0],
+            opacity: [0, 1],
+            duration: 800,
+        }, '-=600'); // Start this animation 600ms before the previous one ends
+    }, []);
+
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -27,7 +48,6 @@ const LoginPage = () => {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // Check the user's role in Firestore to redirect them correctly
             const docRef = doc(db, "users", user.uid);
             const docSnap = await getDoc(docRef);
 
@@ -39,7 +59,6 @@ const LoginPage = () => {
                 } else if (userData.role === 'faculty') {
                     navigate('/faculty-dashboard');
                 } else {
-                    // Fallback in case role is not set
                     navigate('/'); 
                 }
             } else {
@@ -57,13 +76,13 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 p-4 overflow-hidden">
              <div className="w-full max-w-md">
                 <div className="text-center mb-8">
-                    <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">Welcome Back</h1>
-                    <p className="text-md text-cyan-400">Student & Faculty Login for the Smart Student Hub</p>
+                    <h1 className="login-header text-4xl md:text-5xl font-bold text-white mb-3 opacity-0">Welcome Back</h1>
+                    <p className="login-header text-md text-cyan-400 opacity-0">Student & Faculty Login for the Smart Student Hub</p>
                 </div>
-                <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl">
+                <div className="login-card bg-gray-800 p-8 rounded-2xl shadow-2xl opacity-0">
                     <form onSubmit={handleLogin} className="space-y-6">
                         <div>
                             <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">Email Address</label>

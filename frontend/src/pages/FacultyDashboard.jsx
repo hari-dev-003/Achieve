@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import {useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebaseconfig';
-import { collection, query, where, onSnapshot, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { sha256 } from 'js-sha256';
 import Spinner from '../components/Spinner';
 
@@ -55,12 +55,19 @@ const FacultyDashboard = ({ user }) => {
     useEffect(() => {
         const q = query(
             collection(db, "achievements"), 
-            where("status", "==", "pending"),
-            orderBy("submittedAt", "asc")
+            where("status", "==", "pending")
         );
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const pendingAchievements = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // Sort by oldest first to review in order of submission
+            pendingAchievements.sort((a, b) => {
+                const dateA = a.submittedAt?.toDate() || 0;
+                const dateB = b.submittedAt?.toDate() || 0;
+                return dateA - dateB;
+            });
+
             setPending(pendingAchievements);
             setIsLoading(false);
         }, (error) => {
@@ -79,6 +86,8 @@ const FacultyDashboard = ({ user }) => {
             await updateDoc(achievementRef, {
                 status: 'verified',
                 blockchainHash: blockchainHash,
+                verifiedBy: user.uid, // Track which faculty member verified it
+                verifiedAt: new Date(),
             });
         } catch (error) {
             console.error("Error approving achievement:", error);
@@ -95,7 +104,7 @@ const FacultyDashboard = ({ user }) => {
             const achievementRef = doc(db, "achievements", id);
             await updateDoc(achievementRef, {
                 status: 'rejected',
-                rejectionReason: reason, // Add the reason to the document
+                rejectionReason: reason,
             });
         } catch (error) {
             console.error("Error rejecting achievement:", error);
@@ -124,7 +133,7 @@ const FacultyDashboard = ({ user }) => {
             </header>
 
             <main>
-                <h2 className="text-2xl font-semibold mb-4 text-white">Pending Submissions</h2>
+                <h2 className="text-2xl font-semibold mb-4 text-white">Pending Submissions ({pending.length})</h2>
                 {isLoading && <Spinner />}
                 {!isLoading && pending.length === 0 && (
                      <div className="text-center py-10 bg-gray-800 rounded-lg">
@@ -139,7 +148,7 @@ const FacultyDashboard = ({ user }) => {
                                 {/* Column 1: Details */}
                                 <div className="md:col-span-2">
                                     <h3 className="text-xl font-bold text-cyan-400 mb-2">{ach.title}</h3>
-                                    <p className="text-sm text-gray-400 mb-1"><span className='font-semibold'>Student ID:</span> {ach.studentId}</p>
+                                    <p className="text-sm text-gray-400 mb-1 break-all"><span className='font-semibold'>Student ID:</span> {ach.studentId}</p>
                                     <p className="text-sm text-gray-400 mb-4"><span className='font-semibold'>Date:</span> {new Date(ach.date).toLocaleDateString()}</p>
                                     <p className="text-gray-300 leading-relaxed">{ach.description}</p>
                                 </div>
