@@ -128,7 +128,6 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
         
         try {
-            // For URLs, we can't directly use them. For this MVP, we will only allow AI generation with a newly uploaded file.
             if (!imageFile) {
                 alert("To re-generate with AI, please re-upload the certificate image.");
                 setIsGenerating(false);
@@ -174,7 +173,7 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
         try {
             let imageUrl = achievementToEdit?.imageUrl;
 
-            if (imageFile) { // If a new image is selected, upload it
+            if (imageFile) { 
                 const formData = new FormData();
                 formData.append('file', imageFile);
                 formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
@@ -192,9 +191,9 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
                 date,
                 description,
                 imageUrl,
-                status: 'pending', // Reset status to pending on edit
+                status: 'pending', 
                 blockchainHash: null,
-                submittedAt: isEditMode ? achievementToEdit.submittedAt : new Date(),
+                submittedAt: isEditMode && achievementToEdit.submittedAt ? achievementToEdit.submittedAt.toDate() : new Date(),
                 lastUpdatedAt: new Date()
             };
 
@@ -274,16 +273,34 @@ const StudentDashboard = ({ user }) => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (!user) return;
-        const q = query(collection(db, "achievements"), where("studentId", "==", user.uid), orderBy("submittedAt", "desc"));
+        if (!user) {
+            setIsLoading(false);
+            return;
+        }
+
+        // CORRECTED QUERY: Remove the 'orderBy' clause to avoid the index error.
+        const q = query(
+            collection(db, "achievements"), 
+            where("studentId", "==", user.uid)
+        );
+        
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const userAchievements = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // CORRECTED LOGIC: Sort the achievements on the client-side.
+            userAchievements.sort((a, b) => {
+                const dateA = a.submittedAt?.toDate() || 0;
+                const dateB = b.submittedAt?.toDate() || 0;
+                return dateB - dateA; // Sorts by newest first
+            });
+
             setAchievements(userAchievements);
             setIsLoading(false);
         }, (error) => {
             console.error("Error fetching achievements:", error);
             setIsLoading(false);
         });
+        
         return () => unsubscribe();
     }, [user]);
 
@@ -297,8 +314,6 @@ const StudentDashboard = ({ user }) => {
         try {
             const docRef = doc(db, "achievements", achievementToDelete.id);
             await deleteDoc(docRef);
-            // Note: This does not delete the image from Cloudinary as it requires a signed API request from a backend.
-            // For this MVP, we accept that the image will be orphaned.
         } catch (error) {
             console.error("Error deleting document:", error);
             alert("Failed to delete achievement.");
@@ -322,7 +337,7 @@ const StudentDashboard = ({ user }) => {
             <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-white">Student Dashboard</h1>
-                    <p className="text-cyan-400 text-xs md:text-sm break-all">UserID: {user.uid}</p>
+                    <p className="text-cyan-400 text-xs md:text-sm break-all">UserID: {user?.uid}</p>
                 </div>
                 <div className='flex items-center gap-2'>
                     <button onClick={() => navigate(`/portfolio/${user.uid}`)} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition">View My Portfolio</button>

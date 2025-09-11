@@ -1,92 +1,96 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { useNavigate, Link } from 'react-router-dom';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import Spinner from '../components/Spinner';
+import toast from 'react-hot-toast';
 
 const LoginPage = () => {
-    const [studentName, setStudentName] = useState('');
-    const [isLoading, setIsLoading] = useState({ student: false, faculty: false });
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
     const auth = getAuth();
     const db = getFirestore();
 
-    const handleLogin = async (role) => {
-        if (role === 'student' && !studentName.trim()) {
-            alert('Please enter your name to create a student profile.');
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        if (!email || !password) {
+            toast.error('Please enter both email and password.');
             return;
         }
 
-        setIsLoading(prev => ({ ...prev, [role]: true }));
+        setIsLoading(true);
+        const toastId = toast.loading('Signing in...');
 
         try {
-            const userCredential = await signInAnonymously(auth);
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            const userProfile = {
-                uid: user.uid,
-                role: role,
-                createdAt: new Date(),
-            };
+            // Check the user's role in Firestore to redirect them correctly
+            const docRef = doc(db, "users", user.uid);
+            const docSnap = await getDoc(docRef);
 
-            if (role === 'student') {
-                userProfile.name = studentName.trim();
+            if (docSnap.exists()) {
+                const userData = docSnap.data();
+                toast.success('Logged in successfully!', { id: toastId });
+                if (userData.role === 'student') {
+                    navigate('/student-dashboard');
+                } else if (userData.role === 'faculty') {
+                    navigate('/faculty-dashboard');
+                } else {
+                    // Fallback in case role is not set
+                    navigate('/'); 
+                }
+            } else {
+                throw new Error("User role not found.");
             }
-
-            await setDoc(doc(db, "users", user.uid), userProfile);
-            
-            navigate(role === 'student' ? '/student-dashboard' : '/faculty-dashboard');
-
         } catch (error) {
-            console.error("Error signing in: ", error);
-            alert("Login failed. Please try again.");
-            setIsLoading(prev => ({ ...prev, [role]: false }));
+            setIsLoading(false);
+            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                toast.error('Account not found. Please check your email and password.', { id: toastId });
+            } else {
+                toast.error(error.message, { id: toastId });
+            }
+            console.error("Login Error: ", error);
         }
     };
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 p-4">
-            <div className="text-center mb-8">
-                <h1 className="text-5xl md:text-6xl font-bold text-white mb-4 animate-fade-in-up">Smart Student Hub</h1>
-                <p className="text-lg md:text-xl text-cyan-400 animate-fade-in-up" style={{ animationDelay: '200ms' }}>Your Verified Journey to Success.</p>
-            </div>
-            <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm animate-fade-in-up" style={{ animationDelay: '400ms' }}>
-                <h2 className="text-2xl font-semibold text-center text-white mb-6">Join as</h2>
-                <div className="flex flex-col space-y-4">
-                    {/* Student Login */}
-                    <div className="space-y-3">
-                         <label htmlFor="studentName" className="block text-sm font-medium text-gray-300">Student Name</label>
-                        <input
-                            id="studentName"
-                            type="text"
-                            value={studentName}
-                            onChange={(e) => setStudentName(e.target.value)}
-                            placeholder="Enter your full name"
-                            className="w-full bg-gray-700 border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-cyan-500"
-                        />
-                        <button 
-                            onClick={() => handleLogin('student')} 
-                            disabled={isLoading.student}
-                            className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg transition transform hover:scale-105 disabled:bg-cyan-800 disabled:cursor-not-allowed flex items-center justify-center"
-                        >
-                            {isLoading.student ? <Spinner /> : 'Login as Student'}
+             <div className="w-full max-w-md">
+                <div className="text-center mb-8">
+                    <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">Welcome Back</h1>
+                    <p className="text-md text-cyan-400">Student & Faculty Login for the Smart Student Hub</p>
+                </div>
+                <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl">
+                    <form onSubmit={handleLogin} className="space-y-6">
+                        <div>
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
+                            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required className="w-full bg-gray-700 border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-cyan-500" />
+                        </div>
+
+                        <div>
+                            <label htmlFor="password"className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                            <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className="w-full bg-gray-700 border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-cyan-500" />
+                        </div>
+                        
+                        <button type="submit" disabled={isLoading} className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg transition transform hover:scale-105 disabled:bg-cyan-800 disabled:cursor-not-allowed flex items-center justify-center">
+                            {isLoading ? <Spinner /> : 'Log In'}
                         </button>
-                    </div>
-
-                    <div className="relative flex py-3 items-center">
+                    </form>
+                    
+                    <div className="relative flex py-5 items-center">
                         <div className="flex-grow border-t border-gray-600"></div>
-                        <span className="flex-shrink mx-4 text-gray-500">OR</span>
+                        <span className="flex-shrink mx-4 text-gray-500 text-sm">New here?</span>
                         <div className="flex-grow border-t border-gray-600"></div>
                     </div>
-
-                    {/* Faculty Login */}
-                    <button 
-                        onClick={() => handleLogin('faculty')} 
-                        disabled={isLoading.faculty}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition transform hover:scale-105 disabled:bg-indigo-800 disabled:cursor-not-allowed flex items-center justify-center"
-                    >
-                        {isLoading.faculty ? <Spinner /> : 'Login as Faculty'}
-                    </button>
+                    
+                    <Link to="/register">
+                        <button className="w-full bg-transparent border border-gray-600 hover:bg-gray-700 text-gray-300 hover:text-white font-bold py-3 px-4 rounded-lg transition">
+                           Create an Account
+                        </button>
+                    </Link>
                 </div>
             </div>
         </div>
