@@ -11,22 +11,22 @@ const StatusBadge = ({ status }) => {
     let colorClasses = "";
     switch (status) {
         case 'verified':
-            colorClasses = "bg-green-500/30 text-green-700";
+            colorClasses = "bg-green-500/30 text-green-300";
             break;
         case 'pending':
-            colorClasses = "bg-yellow-500/30 text-yellow-600";
+            colorClasses = "bg-yellow-500/30 text-yellow-300";
             break;
         case 'rejected':
-            colorClasses = "bg-red-500/30 text-red-700";
+            colorClasses = "bg-red-500/30 text-red-300";
             break;
         default:
-            colorClasses = "bg-gray-500/30 text-gray-700";
+            colorClasses = "bg-gray-500/30 text-gray-300";
     }
     return <span className={`${baseClasses} ${colorClasses}`}>{status.toUpperCase()}</span>;
 };
 
 const AchievementCard = ({ achievement, onEdit, onDelete }) => (
-    <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700 flex flex-col justify-between hover:border-cyan-500 transition-all duration-300 transform hover:-translate-y-1 overflow-hidden">
+    <div className="achievement-card bg-gray-800 rounded-xl shadow-lg border border-gray-700 flex flex-col justify-between hover:border-cyan-500 transition-all duration-300 transform hover:-translate-y-1 overflow-hidden opacity-0">
         <div className="relative h-40 bg-gray-700">
             <img src={achievement.imageUrl} alt={achievement.title} className="w-full h-full object-cover" onError={(e) => { e.target.onerror = null; e.target.src='https://placehold.co/600x400/1F2937/7DD3FC?text=Image+Not+Found'; }}/>
             <div className="absolute top-2 right-2">
@@ -76,8 +76,20 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const fileInputRef = useRef(null);
+    const formRef = useRef(null);
 
     const isEditMode = !!achievementToEdit;
+
+    useEffect(() => {
+        // Animate form entrance
+        window.anime({
+            targets: formRef.current,
+            translateY: [-30, 0],
+            opacity: [0, 1],
+            duration: 600,
+            easing: 'easeOutExpo'
+        });
+    }, []);
 
     useEffect(() => {
         if (isEditMode) {
@@ -95,11 +107,8 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
             setImagePreview(URL.createObjectURL(file));
         } else {
             setImageFile(null);
-            if (isEditMode) {
-                setImagePreview(achievementToEdit.imageUrl);
-            } else {
-                 setImagePreview('');
-            }
+            if (isEditMode) setImagePreview(achievementToEdit.imageUrl);
+            else setImagePreview('');
             if (file) alert("Please select a valid image file.");
         }
     };
@@ -110,15 +119,12 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
             reader.onloadend = () => resolve(reader.result.split(',')[1]);
             reader.readAsDataURL(file);
         });
-        return {
-            inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
-        };
+        return { inlineData: { data: await base64EncodedDataPromise, mimeType: file.type } };
     };
 
     const handleGenerateDescription = async () => {
-        const imageSource = imageFile || (isEditMode ? achievementToEdit.imageUrl : null);
-        if (!title || !imageSource) {
-            alert("Please provide a title and an image before using AI.");
+        if (!title || !imageFile) {
+            alert("Please provide a title and upload an image before using AI.");
             return;
         }
         setIsGenerating(true);
@@ -128,21 +134,11 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
         
         try {
-            if (!imageFile) {
-                alert("To re-generate with AI, please re-upload the certificate image.");
-                setIsGenerating(false);
-                return;
-            }
             const imagePart = await fileToGenerativePart(imageFile);
-            const prompt = `Analyze the attached certificate image for an achievement titled "${title}". Based *only* on the information in the image, write a professional and concise (2-3 sentences) description for a student's portfolio. Extract the core achievement, and highlight the skills and experience it represents.`;
+            const prompt = `Analyze the certificate image for an achievement titled "${title}". Based *only* on the image, write a professional, concise (2-3 sentences) description for a student's portfolio. Highlight the skills gained.`;
             
             const payload = { contents: [{ parts: [{ text: prompt }, imagePart] }] };
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
             if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
             
@@ -172,7 +168,6 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
         setIsSubmitting(true);
         try {
             let imageUrl = achievementToEdit?.imageUrl;
-
             if (imageFile) { 
                 const formData = new FormData();
                 formData.append('file', imageFile);
@@ -198,23 +193,21 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
             };
 
             if (isEditMode) {
-                const docRef = doc(db, "achievements", achievementToEdit.id);
-                await updateDoc(docRef, achievementData);
+                await updateDoc(doc(db, "achievements", achievementToEdit.id), achievementData);
             } else {
                 await addDoc(collection(db, "achievements"), achievementData);
             }
-
             onFormClose();
         } catch (error) {
             console.error("Submission Error:", error);
-            alert(`Failed to submit achievement: ${error.message}`);
+            alert(`Failed to submit: ${error.message}`);
         } finally {
             setIsSubmitting(false);
         }
     };
     
     return (
-        <div className="bg-gray-800 p-6 md:p-8 rounded-2xl border border-gray-700 mb-8 max-w-3xl mx-auto">
+        <div ref={formRef} className="bg-gray-800 p-6 md:p-8 rounded-2xl border border-gray-700 mb-8 max-w-3xl mx-auto opacity-0">
             <form onSubmit={handleSubmit} className="space-y-6">
                 <h3 className="text-2xl font-bold text-white">{isEditMode ? 'Edit Achievement' : 'Log a New Achievement'}</h3>
                 <div>
@@ -252,7 +245,7 @@ const DeleteConfirmationModal = ({ achievement, onConfirm, onCancel }) => (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
         <div className="bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-md animate-fade-in-up">
             <h2 className="text-xl font-bold text-white mb-4">Confirm Deletion</h2>
-            <p className="text-sm text-gray-400 mb-4">Are you sure you want to permanently delete the achievement: <span className="font-semibold text-cyan-400">"{achievement.title}"</span>? This action cannot be undone.</p>
+            <p className="text-sm text-gray-400 mb-4">Are you sure you want to permanently delete: <span className="font-semibold text-cyan-400">"{achievement.title}"</span>?</p>
             <div className="flex justify-end gap-4 mt-6">
                 <button onClick={onCancel} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition">Cancel</button>
                 <button onClick={onConfirm} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition">Yes, Delete</button>
@@ -261,9 +254,7 @@ const DeleteConfirmationModal = ({ achievement, onConfirm, onCancel }) => (
     </div>
 );
 
-
 // --- Main Student Dashboard Component ---
-
 const StudentDashboard = ({ user }) => {
     const [achievements, setAchievements] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -273,36 +264,44 @@ const StudentDashboard = ({ user }) => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (!user) {
-            setIsLoading(false);
-            return;
-        }
+        // Page Entrance Animation
+        window.anime({
+            targets: '.dashboard-header, .dashboard-content',
+            translateY: [-20, 0],
+            opacity: [0, 1],
+            duration: 800,
+            delay: window.anime.stagger(100, {start: 300}),
+            easing: 'easeOutExpo'
+        });
+    }, []);
 
-        // CORRECTED QUERY: Remove the 'orderBy' clause to avoid the index error.
-        const q = query(
-            collection(db, "achievements"), 
-            where("studentId", "==", user.uid)
-        );
-        
+    useEffect(() => {
+        if (!user) { setIsLoading(false); return; }
+        const q = query(collection(db, "achievements"), where("studentId", "==", user.uid));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const userAchievements = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
-            // CORRECTED LOGIC: Sort the achievements on the client-side.
-            userAchievements.sort((a, b) => {
-                const dateA = a.submittedAt?.toDate() || 0;
-                const dateB = b.submittedAt?.toDate() || 0;
-                return dateB - dateA; // Sorts by newest first
-            });
-
+            userAchievements.sort((a, b) => (b.submittedAt?.toDate() || 0) - (a.submittedAt?.toDate() || 0));
             setAchievements(userAchievements);
             setIsLoading(false);
         }, (error) => {
             console.error("Error fetching achievements:", error);
             setIsLoading(false);
         });
-        
         return () => unsubscribe();
     }, [user]);
+
+    useEffect(() => {
+        // Stagger animation for achievement cards
+        if (achievements.length > 0) {
+            window.anime({
+                targets: '.achievement-card',
+                translateY: [20, 0],
+                opacity: [0, 1],
+                delay: window.anime.stagger(100),
+                easing: 'easeOutExpo'
+            });
+        }
+    }, [achievements]);
 
     const handleEdit = (achievement) => {
         setAchievementToEdit(achievement);
@@ -312,8 +311,7 @@ const StudentDashboard = ({ user }) => {
     const handleDelete = async () => {
         if (!achievementToDelete) return;
         try {
-            const docRef = doc(db, "achievements", achievementToDelete.id);
-            await deleteDoc(docRef);
+            await deleteDoc(doc(db, "achievements", achievementToDelete.id));
         } catch (error) {
             console.error("Error deleting document:", error);
             alert("Failed to delete achievement.");
@@ -334,7 +332,7 @@ const StudentDashboard = ({ user }) => {
 
     return (
         <div className="container mx-auto p-4 md:p-8">
-            <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <header className="dashboard-header flex flex-col md:flex-row justify-between items-center mb-8 gap-4 opacity-0">
                 <div>
                     <h1 className="text-3xl font-bold text-white">Student Dashboard</h1>
                     <p className="text-cyan-400 text-xs md:text-sm break-all">UserID: {user?.uid}</p>
@@ -345,7 +343,7 @@ const StudentDashboard = ({ user }) => {
                 </div>
             </header>
             
-            <div className="text-center mb-8">
+            <div className="dashboard-content text-center mb-8 opacity-0">
                 <button onClick={() => { setShowForm(true); setAchievementToEdit(null); }} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-lg">
                     ＋ Add New Achievement
                 </button>
@@ -353,7 +351,7 @@ const StudentDashboard = ({ user }) => {
 
             {showForm && <AddAchievementForm user={user} onFormClose={handleFormClose} achievementToEdit={achievementToEdit} />}
             
-            <div className="mt-8">
+            <div className="dashboard-content mt-8 opacity-0">
                 <h2 className="text-2xl font-semibold mb-4 text-white">My Submissions</h2>
                 {isLoading ? <Spinner /> : (
                     achievements.length > 0 ? (
