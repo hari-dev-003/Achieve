@@ -5,11 +5,39 @@ import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import Spinner from '../components/Spinner';
 import toast from 'react-hot-toast';
 
+// --- Data for dropdowns ---
+const departments = ["CSE", "IT", "CSBS", "AIDS", "ECE", "EEE", "Civil", "Mechanical", "Chemical", "Instrumentation"];
+const years = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
+const classes = ["A", "B", "C"];
+
+// --- Custom Select Component for consistent styling ---
+const CustomSelect = ({ id, value, onChange, options, placeholder }) => (
+    <div className="relative">
+        <select
+            id={id}
+            value={value}
+            onChange={onChange}
+            required
+            className="w-full bg-gray-700 border-gray-600 rounded-lg px-4 py-2.5 text-white appearance-none focus:ring-2 focus:ring-cyan-500"
+        >
+            <option value="" disabled>{placeholder}</option>
+            {options.map(option => <option key={option} value={option}>{option}</option>)}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.516 7.548c.436-.446 1.144-.446 1.58 0L10 10.404l2.904-2.856c.436-.446 1.144-.446 1.58 0 .436.446.436 1.167 0 1.613l-3.72 3.655c-.436.446-1.144.446-1.58 0L5.516 9.16c-.436-.446-.436-1.167 0-1.613z"/></svg>
+        </div>
+    </div>
+);
+
+
 const RegisterPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [name, setName] = useState(''); // For students
-    const [role, setRole] = useState('student'); // Default role
+    const [name, setName] = useState('');
+    const [role, setRole] = useState('student');
+    const [department, setDepartment] = useState('');
+    const [year, setYear] = useState('');
+    const [section, setSection] = useState(''); // 'class' is a reserved keyword
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
     const auth = getAuth();
@@ -17,10 +45,7 @@ const RegisterPage = () => {
 
     useEffect(() => {
         // Entrance Animation
-        const timeline = window.anime.timeline({
-            easing: 'easeOutExpo',
-        });
-
+        const timeline = window.anime.timeline({ easing: 'easeOutExpo' });
         timeline.add({
             targets: '.register-header',
             translateY: [-30, 0],
@@ -37,8 +62,8 @@ const RegisterPage = () => {
 
     const handleRegister = async (e) => {
         e.preventDefault();
-        if (role === 'student' && !name.trim()) {
-            toast.error('Please enter your name.');
+        if (role === 'student' && (!name.trim() || !department || !year || !section)) {
+            toast.error('Please fill in all student details.');
             return;
         }
         if (!email || !password) {
@@ -66,14 +91,14 @@ const RegisterPage = () => {
 
             if (role === 'student') {
                 userProfile.name = name.trim();
+                userProfile.department = department;
+                userProfile.year = year;
+                userProfile.section = section;
             }
 
             await setDoc(doc(db, "users", user.uid), userProfile);
-            
             toast.success('Account created successfully!', { id: toastId });
-            
             navigate(role === 'student' ? '/student-dashboard' : '/faculty-dashboard');
-
         } catch (error) {
             setIsLoading(false);
             toast.error(error.message, { id: toastId });
@@ -99,10 +124,17 @@ const RegisterPage = () => {
                         </div>
 
                         {role === 'student' && (
-                            <div>
-                                <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
-                                <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter your full name" required className="w-full bg-gray-700 border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-cyan-500" />
-                            </div>
+                            <>
+                                <div>
+                                    <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
+                                    <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter your full name" required className="w-full bg-gray-700 border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-cyan-500" />
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <CustomSelect id="department" value={department} onChange={(e) => setDepartment(e.target.value)} options={departments} placeholder="Select Department" />
+                                    <CustomSelect id="year" value={year} onChange={(e) => setYear(e.target.value)} options={years} placeholder="Select Year" />
+                                </div>
+                                <CustomSelect id="class" value={section} onChange={(e) => setSection(e.target.value)} options={classes} placeholder="Select Class" />
+                            </>
                         )}
                         
                         <div>
