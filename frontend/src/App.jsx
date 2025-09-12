@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { Toaster } from 'react-hot-toast';
 
-// Import Page Components
+// Import Page Components from their new locations
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import StudentDashboard from './pages/StudentDashboard';
-import FacultyDashboard from './pages/FacultyDashboard';
 import PublicPortfolio from './pages/PublicPortfolio';
 import Spinner from './components/Spinner';
 
+// Import student-specific pages
+import StudentDashboard from './pages/Student/StudentDashboard';
+
+// Import the new Faculty Layout and its nested pages
+import FacultyLayout from './pages/faculty/FacultyLayout';
+import FacultyProfile from './pages/faculty/FacultyProfile';
+import FacultyApproval from './pages/faculty/FacultyApproval';
+import FacultyClassView from './pages/faculty/FacultyClassView';
+
+
 // --- Protected Route Component ---
-// This component now takes a 'component' as a prop to render it.
 const ProtectedRoute = ({ user, userRole, requiredRole, isLoading, component: Component }) => {
     if (isLoading) {
         return <div className="flex items-center justify-center h-screen bg-gray-900"><Spinner /></div>;
@@ -24,7 +31,6 @@ const ProtectedRoute = ({ user, userRole, requiredRole, isLoading, component: Co
     if (userRole !== requiredRole) {
         return <Navigate to="/login" replace />;
     }
-    // Render the passed component and inject the user prop into it.
     return <Component user={user} />;
 };
 
@@ -61,17 +67,16 @@ const App = () => {
             <Toaster 
                 position="top-center"
                 reverseOrder={false}
-                toastOptions={{
-                    style: { background: '#333', color: '#fff' },
-                }}
+                toastOptions={{ style: { background: '#333', color: '#fff' } }}
             />
+            
                 <Routes>
                     {/* Public Routes */}
                     <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
                     <Route path="/register" element={user ? <Navigate to="/" /> : <RegisterPage />} />
                     <Route path="/portfolio/:studentId" element={<PublicPortfolio />} />
 
-                    {/* Protected Routes */}
+                    {/* Protected Student Route */}
                     <Route 
                         path="/student-dashboard" 
                         element={
@@ -85,18 +90,25 @@ const App = () => {
                         }
                     />
 
+                    {/* Protected Faculty Routes with Nested Layout */}
                     <Route 
-                        path="/faculty-dashboard" 
+                        path="/faculty-dashboard"
                         element={
-                             <ProtectedRoute 
-                                user={user} 
-                                userRole={userRole} 
-                                requiredRole="faculty" 
+                            <ProtectedRoute
+                                user={user}
+                                userRole={userRole}
+                                requiredRole="faculty"
                                 isLoading={isLoading}
-                                component={FacultyDashboard} 
+                                component={FacultyLayout}
                             />
                         }
-                    />
+                    >
+                        <Route index element={<Navigate to="profile" replace />} />
+                        <Route path="profile" element={<FacultyProfile />} />
+                        <Route path="approval" element={<FacultyApproval />} />
+                        <Route path="class-view" element={<FacultyClassView />} /> 
+                    </Route>
+
 
                     {/* Root path redirect logic */}
                     <Route 
@@ -106,7 +118,7 @@ const App = () => {
                             !user ? <Navigate to="/login" /> :
                             userRole === 'student' ? <Navigate to="/student-dashboard" /> :
                             userRole === 'faculty' ? <Navigate to="/faculty-dashboard" /> :
-                            <Navigate to="/login" /> // Fallback
+                            <Navigate to="/login" />
                         } 
                     />
                 </Routes>

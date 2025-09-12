@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../firebaseconfig';
+import { auth, db } from '../../firebaseconfig';
 import { collection, query, where, onSnapshot, addDoc, orderBy, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
-import Spinner from '../components/Spinner';
+import Spinner from '../../components/Spinner';
 
 // --- Reusable UI Components ---
 
