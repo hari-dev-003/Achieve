@@ -1,0 +1,25 @@
+# Node modules and lockfiles
+node_modules
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+
+# Build output
+dist
+build
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+
+# OS and editor junk
+.DS_Store
+*.swp
+*.swo
+*.idea
+.vscode
+
+# Git
+.git
+.gitignore

@@ -14,10 +14,10 @@ import Spinner from './components/Spinner';
 import StudentDashboard from './pages/Student/StudentDashboard';
 
 // Import the new Faculty Layout and its nested pages
-import FacultyLayout from './pages/faculty/FacultyLayout';
-import FacultyProfile from './pages/faculty/FacultyProfile';
-import FacultyApproval from './pages/faculty/FacultyApproval';
-import FacultyClassView from './pages/faculty/FacultyClassView';
+import FacultyLayout from './pages/Faculty/FacultyLayout';
+import FacultyProfile from './pages/Faculty/FacultyProfile';
+import FacultyApproval from './pages/Faculty/FacultyApproval';
+import FacultyClassView from './pages/Faculty/FacultyClassView';
 
 
 // --- Protected Route Component ---

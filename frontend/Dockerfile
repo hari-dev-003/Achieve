@@ -1,20 +1,17 @@
-# Use an official Node.js runtime as a parent image
+# Use Node.js base image
 FROM node:20-alpine
 
-# Set the working directory in the container
+# Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json to the working directory
-COPY package*.json ./
-
-# Install any needed packages
-RUN npm install
-
-# Bundle app source
+# Copy everything from your frontend folder
 COPY . .
 
-# Make port 5000 available to the world outside this container
+# Install dependencies
+RUN npm install
+
+# Expose port 5000
 EXPOSE 5000
 
-# Run the app when the container launches
+# Start the dev server
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
