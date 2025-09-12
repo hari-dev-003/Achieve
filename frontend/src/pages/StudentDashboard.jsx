@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebaseconfig';
-import { collection, query, where, onSnapshot, addDoc, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, orderBy, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import Spinner from '../components/Spinner';
 
 // --- Reusable UI Components ---
@@ -67,7 +67,7 @@ const AchievementCard = ({ achievement, onEdit, onDelete }) => (
     </div>
 );
 
-const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
+const AddAchievementForm = ({ user, onFormClose, achievementToEdit, studentDetails }) => {
     const [title, setTitle] = useState('');
     const [date, setDate] = useState('');
     const [description, setDescription] = useState('');
@@ -81,14 +81,7 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
     const isEditMode = !!achievementToEdit;
 
     useEffect(() => {
-        // Animate form entrance
-        window.anime({
-            targets: formRef.current,
-            translateY: [-30, 0],
-            opacity: [0, 1],
-            duration: 600,
-            easing: 'easeOutExpo'
-        });
+        window.anime({ targets: formRef.current, translateY: [-30, 0], opacity: [0, 1], duration: 600, easing: 'easeOutExpo' });
     }, []);
 
     useEffect(() => {
@@ -164,6 +157,10 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
             alert("Please upload a certificate image.");
             return;
         }
+        if (!studentDetails) {
+            alert("Could not find student details. Please try logging in again.");
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -182,6 +179,10 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit }) => {
             
             const achievementData = {
                 studentId: user.uid,
+                studentName: studentDetails.name,
+                department: studentDetails.department,
+                year: studentDetails.year,
+                section: studentDetails.section,
                 title,
                 date,
                 description,
@@ -257,6 +258,7 @@ const DeleteConfirmationModal = ({ achievement, onConfirm, onCancel }) => (
 // --- Main Student Dashboard Component ---
 const StudentDashboard = ({ user }) => {
     const [achievements, setAchievements] = useState([]);
+    const [studentDetails, setStudentDetails] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [achievementToEdit, setAchievementToEdit] = useState(null);
@@ -264,19 +266,22 @@ const StudentDashboard = ({ user }) => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Page Entrance Animation
-        window.anime({
-            targets: '.dashboard-header, .dashboard-content',
-            translateY: [-20, 0],
-            opacity: [0, 1],
-            duration: 800,
-            delay: window.anime.stagger(100, {start: 300}),
-            easing: 'easeOutExpo'
-        });
+        window.anime({ targets: '.dashboard-header, .dashboard-content', translateY: [-20, 0], opacity: [0, 1], duration: 800, delay: window.anime.stagger(100, {start: 300}), easing: 'easeOutExpo' });
     }, []);
 
     useEffect(() => {
         if (!user) { setIsLoading(false); return; }
+        
+        // Fetch student details
+        const fetchStudentDetails = async () => {
+            const docRef = doc(db, "users", user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setStudentDetails(docSnap.data());
+            }
+        };
+        fetchStudentDetails();
+
         const q = query(collection(db, "achievements"), where("studentId", "==", user.uid));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const userAchievements = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -291,15 +296,8 @@ const StudentDashboard = ({ user }) => {
     }, [user]);
 
     useEffect(() => {
-        // Stagger animation for achievement cards
         if (achievements.length > 0) {
-            window.anime({
-                targets: '.achievement-card',
-                translateY: [20, 0],
-                opacity: [0, 1],
-                delay: window.anime.stagger(100),
-                easing: 'easeOutExpo'
-            });
+            window.anime({ targets: '.achievement-card', translateY: [20, 0], opacity: [0, 1], delay: window.anime.stagger(100), easing: 'easeOutExpo' });
         }
     }, [achievements]);
 
@@ -349,7 +347,7 @@ const StudentDashboard = ({ user }) => {
                 </button>
             </div>
 
-            {showForm && <AddAchievementForm user={user} onFormClose={handleFormClose} achievementToEdit={achievementToEdit} />}
+            {showForm && <AddAchievementForm user={user} onFormClose={handleFormClose} achievementToEdit={achievementToEdit} studentDetails={studentDetails} />}
             
             <div className="dashboard-content mt-8 opacity-0">
                 <h2 className="text-2xl font-semibold mb-4 text-white">My Submissions</h2>

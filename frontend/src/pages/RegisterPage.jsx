@@ -37,14 +37,13 @@ const RegisterPage = () => {
     const [role, setRole] = useState('student');
     const [department, setDepartment] = useState('');
     const [year, setYear] = useState('');
-    const [section, setSection] = useState(''); // 'class' is a reserved keyword
+    const [section, setSection] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
     const auth = getAuth();
     const db = getFirestore();
 
     useEffect(() => {
-        // Entrance Animation
         const timeline = window.anime.timeline({ easing: 'easeOutExpo' });
         timeline.add({
             targets: '.register-header',
@@ -62,12 +61,12 @@ const RegisterPage = () => {
 
     const handleRegister = async (e) => {
         e.preventDefault();
-        if (role === 'student' && (!name.trim() || !department || !year || !section)) {
-            toast.error('Please fill in all student details.');
+        if ((role === 'student' || role === 'faculty') && (!name.trim() || !department || !year || !section)) {
+            toast.error('Please fill in all your details.');
             return;
         }
         if (!email || !password) {
-            toast.error('Please fill in all fields.');
+            toast.error('Please provide a valid email and password.');
             return;
         }
         if (password.length < 6) {
@@ -86,15 +85,12 @@ const RegisterPage = () => {
                 uid: user.uid,
                 email: user.email,
                 role: role,
+                name: name.trim(),
+                department,
+                year,
+                section,
                 createdAt: new Date(),
             };
-
-            if (role === 'student') {
-                userProfile.name = name.trim();
-                userProfile.department = department;
-                userProfile.year = year;
-                userProfile.section = section;
-            }
 
             await setDoc(doc(db, "users", user.uid), userProfile);
             toast.success('Account created successfully!', { id: toastId });
@@ -123,19 +119,15 @@ const RegisterPage = () => {
                             </div>
                         </div>
 
-                        {role === 'student' && (
-                            <>
-                                <div>
-                                    <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
-                                    <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter your full name" required className="w-full bg-gray-700 border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-cyan-500" />
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <CustomSelect id="department" value={department} onChange={(e) => setDepartment(e.target.value)} options={departments} placeholder="Select Department" />
-                                    <CustomSelect id="year" value={year} onChange={(e) => setYear(e.target.value)} options={years} placeholder="Select Year" />
-                                </div>
-                                <CustomSelect id="class" value={section} onChange={(e) => setSection(e.target.value)} options={classes} placeholder="Select Class" />
-                            </>
-                        )}
+                        <div>
+                            <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
+                            <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter your full name" required className="w-full bg-gray-700 border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-cyan-500" />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <CustomSelect id="department" value={department} onChange={(e) => setDepartment(e.target.value)} options={departments} placeholder="Select Department" />
+                            <CustomSelect id="year" value={year} onChange={(e) => setYear(e.target.value)} options={years} placeholder="Select Year" />
+                        </div>
+                        <CustomSelect id="class" value={section} onChange={(e) => setSection(e.target.value)} options={classes} placeholder="Select Class" />
                         
                         <div>
                             <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
