@@ -1,32 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebaseconfig';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { sha256 } from 'js-sha256';
 import Spinner from '../components/Spinner';
 
-// --- Data for dropdowns ---
-const departments = ["CSE", "IT", "CSBS", "AIDS", "ECE", "EEE", "Civil", "Mechanical", "Chemical", "Instrumentation"];
-const years = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
-const classes = ["A", "B", "C"];
+// --- Floating Shapes Background Component ---
+const FloatingShapes = () => {
+    useEffect(() => {
+        window.anime({
+            targets: '.floating-shape',
+            translateY: () => window.anime.random(-20, 20),
+            translateX: () => window.anime.random(-20, 20),
+            scale: () => window.anime.random(1, 1.5),
+            duration: () => window.anime.random(3000, 5000),
+            easing: 'easeInOutQuad',
+            direction: 'alternate',
+            loop: true,
+        });
+    }, []);
 
-// --- Custom Select Component for consistent styling ---
-const CustomSelect = ({ id, value, onChange, options, placeholder, className }) => (
-    <div className={`relative ${className}`}>
-        <select
-            id={id}
-            value={value}
-            onChange={onChange}
-            className="w-full bg-gray-700 border-gray-600 rounded-lg px-4 py-2.5 text-white appearance-none focus:ring-2 focus:ring-indigo-500"
-        >
-            <option value="">{placeholder}</option>
-            {options.map(option => <option key={option} value={option}>{option}</option>)}
-        </select>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.516 7.548c.436-.446 1.144-.446 1.58 0L10 10.404l2.904-2.856c.436-.446 1.144-.446 1.58 0 .436.446.436 1.167 0 1.613l-3.72 3.655c-.436.446-1.144.446-1.58 0L5.516 9.16c-.436-.446-.436-1.167 0-1.613z"/></svg>
+    return (
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+            <div className="floating-shape absolute top-[10%] left-[10%] w-24 h-24 bg-cyan-500/10 rounded-full filter blur-2xl"></div>
+            <div className="floating-shape absolute bottom-[10%] right-[10%] w-32 h-32 bg-indigo-500/10 rounded-full filter blur-3xl"></div>
+            <div className="floating-shape absolute top-[20%] right-[15%] w-16 h-16 bg-green-500/10 rounded-2xl filter blur-xl"></div>
+            <div className="floating-shape absolute bottom-[25%] left-[15%] w-20 h-20 bg-yellow-500/10 rounded-2xl filter blur-2xl"></div>
         </div>
-    </div>
-);
+    );
+};
 
 
 // --- Rejection Feedback Modal Component ---
@@ -71,35 +73,46 @@ const RejectionModal = ({ achievement, onConfirm, onCancel }) => {
 // --- Main Faculty Dashboard Component ---
 const FacultyDashboard = ({ user }) => {
     const [pending, setPending] = useState([]);
+    const [facultyDetails, setFacultyDetails] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(null);
     const [showRejectionModalFor, setShowRejectionModalFor] = useState(null);
-    
-    // State for filters
-    const [filterDepartment, setFilterDepartment] = useState('');
-    const [filterYear, setFilterYear] = useState('');
-    const [filterSection, setFilterSection] = useState('');
-
     const navigate = useNavigate();
 
     useEffect(() => {
         window.anime({ targets: '.dashboard-header, .dashboard-content', translateY: [-20, 0], opacity: [0, 1], duration: 800, delay: window.anime.stagger(100, {start: 300}), easing: 'easeOutExpo' });
     }, []);
     
+    // Fetch logged-in faculty's details
     useEffect(() => {
-        // Base query for pending achievements
-        let q = query(collection(db, "achievements"), where("status", "==", "pending"));
+        if (!user) return;
+        const fetchFacultyDetails = async () => {
+            const docRef = doc(db, "users", user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setFacultyDetails(docSnap.data());
+            } else {
+                console.error("Faculty details not found!");
+                setIsLoading(false);
+            }
+        };
+        fetchFacultyDetails();
+    }, [user]);
 
-        // Dynamically add filters to the query
-        if (filterDepartment) {
-            q = query(q, where("department", "==", filterDepartment));
+    // Fetch achievements based on faculty's details
+    useEffect(() => {
+        // Only run query if faculty details are available
+        if (!facultyDetails) {
+            return;
         }
-        if (filterYear) {
-            q = query(q, where("year", "==", filterYear));
-        }
-        if (filterSection) {
-            q = query(q, where("section", "==", filterSection));
-        }
+
+        const q = query(
+            collection(db, "achievements"), 
+            where("status", "==", "pending"),
+            where("department", "==", facultyDetails.department),
+            where("year", "==", facultyDetails.year),
+            where("section", "==", facultyDetails.section)
+        );
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const pendingAchievements = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -108,27 +121,20 @@ const FacultyDashboard = ({ user }) => {
             setIsLoading(false);
         }, (error) => {
             console.error("Error fetching achievements:", error);
-            // This error can happen if an index is required. Firestore provides a link to create it.
             if (error.code === 'failed-precondition') {
-                alert("This filter combination requires a new database index. Please check the browser console for a link to create it in Firebase.");
+                alert("This query requires a database index. Please check the browser console for a link to create it in Firebase.");
             }
             setIsLoading(false);
         });
 
         return () => unsubscribe();
-    }, [filterDepartment, filterYear, filterSection]); // Re-run query when filters change
+    }, [facultyDetails]); // Re-run query when faculty details are loaded
 
     useEffect(() => {
         if (pending.length > 0) {
             window.anime({ targets: '.pending-card', translateY: [20, 0], opacity: [0, 1], delay: window.anime.stagger(100), easing: 'easeOutExpo' });
         }
     }, [pending]);
-    
-    const handleClearFilters = () => {
-        setFilterDepartment('');
-        setFilterYear('');
-        setFilterSection('');
-    };
 
     const handleApprove = async (id) => {
         setIsUpdating(id);
@@ -170,69 +176,69 @@ const FacultyDashboard = ({ user }) => {
     };
 
     return (
-        <div className="container mx-auto p-4 md:p-8">
-            <header className="dashboard-header flex flex-col md:flex-row justify-between items-center mb-8 gap-4 opacity-0">
-                <div>
-                    <h1 className="text-3xl font-bold text-white">Faculty Dashboard</h1>
-                    <p className="text-indigo-400">Verification Portal</p>
-                </div>
-                <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition self-end md:self-auto">
-                    Logout
-                </button>
-            </header>
-
-            <main className="dashboard-content opacity-0">
-                <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-gray-700 mb-8">
-                    <h3 className="text-lg font-semibold text-white mb-4">Filter Submissions</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <CustomSelect id="department" value={filterDepartment} onChange={(e) => setFilterDepartment(e.target.value)} options={departments} placeholder="All Departments" />
-                        <CustomSelect id="year" value={filterYear} onChange={(e) => setFilterYear(e.target.value)} options={years} placeholder="All Years" />
-                        <CustomSelect id="class" value={filterSection} onChange={(e) => setFilterSection(e.target.value)} options={classes} placeholder="All Classes" />
-                        <button onClick={handleClearFilters} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2.5 px-4 rounded-lg transition h-full">Clear Filters</button>
+        <div className="relative container mx-auto p-4 md:p-8">
+            <FloatingShapes />
+            <div className="relative z-10">
+                <header className="dashboard-header flex flex-col md:flex-row justify-between items-center mb-8 gap-4 opacity-0">
+                    <div>
+                        <h1 className="text-3xl font-bold text-white">Faculty Dashboard</h1>
+                        <p className="text-indigo-400">Verification Portal</p>
                     </div>
-                </div>
+                    <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition self-end md:self-auto">
+                        Logout
+                    </button>
+                </header>
 
-                <h2 className="text-2xl font-semibold mb-4 text-white">Pending Submissions ({pending.length})</h2>
-                {isLoading && <Spinner />}
-                {!isLoading && pending.length === 0 && (
-                     <div className="text-center py-10 bg-gray-800/50 backdrop-blur-sm rounded-lg">
-                        <p className="text-gray-400">No pending submissions match the current filters.</p>
+                <main className="dashboard-content opacity-0">
+                    <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-gray-700 mb-8">
+                        {facultyDetails ? (
+                            <h3 className="text-lg font-semibold text-white">
+                                Showing submissions for: <span className="text-cyan-400">{facultyDetails.department}</span> - <span className="text-cyan-400">{facultyDetails.year}</span> - Section <span className="text-cyan-400">{facultyDetails.section}</span>
+                            </h3>
+                        ) : (
+                             <h3 className="text-lg font-semibold text-white">Loading your details...</h3>
+                        )}
                     </div>
-                )}
-                <div className="space-y-6">
-                    {pending.map(ach => (
-                        <div key={ach.id} className="pending-card bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-gray-700 opacity-0">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* Column 1: Details */}
-                                <div className="md:col-span-2">
-                                    <h3 className="text-xl font-bold text-cyan-400 mb-2">{ach.title}</h3>
-                                    <div className="text-sm text-gray-400 mb-4 space-y-1">
-                                        <p><span className='font-semibold'>Student:</span> {ach.studentName}</p>
-                                        <p><span className='font-semibold'>Class:</span> {ach.department} - {ach.year} - Section {ach.section}</p>
-                                        <p><span className='font-semibold'>Date:</span> {new Date(ach.date).toLocaleDateString()}</p>
+
+                    <h2 className="text-2xl font-semibold mb-4 text-white">Pending Submissions ({pending.length})</h2>
+                    {isLoading && <Spinner />}
+                    {!isLoading && pending.length === 0 && (
+                         <div className="text-center py-10 bg-gray-800/50 backdrop-blur-sm rounded-lg">
+                            <p className="text-gray-400">There are no pending submissions for your assigned class.</p>
+                        </div>
+                    )}
+                    <div className="space-y-6">
+                        {pending.map(ach => (
+                            <div key={ach.id} className="pending-card bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-gray-700 opacity-0">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="md:col-span-2">
+                                        <h3 className="text-xl font-bold text-cyan-400 mb-2">{ach.title}</h3>
+                                        <div className="text-sm text-gray-400 mb-4 space-y-1">
+                                            <p><span className='font-semibold'>Student:</span> {ach.studentName}</p>
+                                            <p><span className='font-semibold'>Date:</span> {new Date(ach.date).toLocaleDateString()}</p>
+                                        </div>
+                                        <p className="text-gray-300 leading-relaxed">{ach.description}</p>
                                     </div>
-                                    <p className="text-gray-300 leading-relaxed">{ach.description}</p>
-                                </div>
-                                {/* Column 2: Certificate & Actions */}
-                                <div>
-                                    <p className="font-semibold text-gray-300 mb-2">Certificate/Proof:</p>
-                                    <a href={ach.imageUrl} target="_blank" rel="noopener noreferrer">
-                                        <img src={ach.imageUrl} alt="Certificate" className="rounded-lg w-full h-auto object-cover cursor-pointer hover:opacity-80 transition" />
-                                    </a>
-                                    <div className="flex gap-4 mt-4">
-                                        <button onClick={() => handleApprove(ach.id)} disabled={isUpdating === ach.id} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-green-800">
-                                            {isUpdating === ach.id ? '...' : 'Approve'}
-                                        </button>
-                                        <button onClick={() => setShowRejectionModalFor(ach)} disabled={isUpdating === ach.id} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-red-800">
-                                            {isUpdating === ach.id ? '...' : 'Reject'}
-                                        </button>
+                                    <div>
+                                        <p className="font-semibold text-gray-300 mb-2">Certificate/Proof:</p>
+                                        <a href={ach.imageUrl} target="_blank" rel="noopener noreferrer">
+                                            <img src={ach.imageUrl} alt="Certificate" className="rounded-lg w-full h-auto object-cover cursor-pointer hover:opacity-80 transition" />
+                                        </a>
+                                        <div className="flex gap-4 mt-4">
+                                            <button onClick={() => handleApprove(ach.id)} disabled={isUpdating === ach.id} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-green-800">
+                                                {isUpdating === ach.id ? '...' : 'Approve'}
+                                            </button>
+                                            <button onClick={() => setShowRejectionModalFor(ach)} disabled={isUpdating === ach.id} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-red-800">
+                                                {isUpdating === ach.id ? '...' : 'Reject'}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
-            </main>
+                        ))}
+                    </div>
+                </main>
+            </div>
             
             {showRejectionModalFor && (
                 <RejectionModal 
