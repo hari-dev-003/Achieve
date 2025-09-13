@@ -1,17 +1,16 @@
-# Use Node.js base image
 FROM node:20-alpine
 
-# Set working directory
 WORKDIR /app
 
-# Copy everything from your frontend folder
-COPY . .
+# Copy only package files first
+COPY frontend/package*.json ./
 
-# Install dependencies
-RUN npm install
+# Clean install to avoid optional dependency bug
+RUN rm -rf node_modules package-lock.json && npm install
 
-# Expose port 5000
+# Copy the rest of the frontend code
+COPY frontend/ ./
+
 EXPOSE 5000
 
-# Start the dev server
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
