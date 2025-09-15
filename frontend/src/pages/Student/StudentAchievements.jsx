@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../../firebaseconfig';
-import { collection, query, where, onSnapshot, addDoc, orderBy, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { useOutletContext, useNavigate } from 'react-router-dom';
+import { db, auth } from '../../firebaseconfig';
+import { collection, query, where, onSnapshot, addDoc, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import Spinner from '../../components/Spinner';
-import RecommendationCard from '../../components/RecommendationCard'; // Import the new component
 
-// --- Reusable UI Components ---
+// --- Reusable UI Components from the old dashboard ---
 
 const StatusBadge = ({ status }) => {
     const baseClasses = "px-3 py-1 text-xs font-bold rounded-full transition-colors duration-300 backdrop-blur-sm";
@@ -256,34 +255,18 @@ const DeleteConfirmationModal = ({ achievement, onConfirm, onCancel }) => (
     </div>
 );
 
-// --- Main Student Dashboard Component ---
-const StudentDashboard = ({ user }) => {
+// --- Main Student Achievements Page ---
+const StudentAchievements = () => {
+    const { studentDetails } = useOutletContext();
     const [achievements, setAchievements] = useState([]);
-    const [studentDetails, setStudentDetails] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [achievementToEdit, setAchievementToEdit] = useState(null);
     const [achievementToDelete, setAchievementToDelete] = useState(null);
-    
-    // State for recommendations
-    const [recommendations, setRecommendations] = useState(null);
-    const [isRecsLoading, setIsRecsLoading] = useState(false);
-
-    const navigate = useNavigate();
-
-    useEffect(() => {
-        window.anime({ targets: '.dashboard-header, .dashboard-content', translateY: [-20, 0], opacity: [0, 1], duration: 800, delay: window.anime.stagger(100, {start: 300}), easing: 'easeOutExpo' });
-    }, []);
+    const user = auth.currentUser;
 
     useEffect(() => {
         if (!user) { setIsLoading(false); return; }
-        
-        const fetchStudentDetails = async () => {
-            const docRef = doc(db, "users", user.uid);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) setStudentDetails(docSnap.data());
-        };
-        fetchStudentDetails();
 
         const q = query(collection(db, "achievements"), where("studentId", "==", user.uid));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -303,120 +286,41 @@ const StudentDashboard = ({ user }) => {
             window.anime({ targets: '.achievement-card', translateY: [20, 0], opacity: [0, 1], delay: window.anime.stagger(100), easing: 'easeOutExpo' });
         }
     }, [achievements]);
+
+    const handleEdit = (achievement) => {
+        setAchievementToEdit(achievement);
+        setShowForm(true);
+    };
     
-    useEffect(() => {
-        if (recommendations) {
-            window.anime({ targets: '.recommendation-card', translateY: [20, 0], opacity: [0, 1], delay: window.anime.stagger(100), easing: 'easeOutExpo' });
-        }
-    }, [recommendations]);
-
-    const handleGetRecommendations = async () => {
-        if (!studentDetails || !studentDetails.skillSet || studentDetails.skillSet.length === 0) {
-            alert("Get more achievements verified to build your skill profile and receive recommendations!");
-            return;
-        }
-        setIsRecsLoading(true);
-        setRecommendations(null);
-
-        const skills = studentDetails.skillSet.join(', ');
-        const prompt = `Based on the skills [${skills}], suggest relevant learning opportunities for a ${studentDetails.year} ${studentDetails.department} student. Provide 2 online courses, 2 upcoming competitions, and 1 project idea. Return the response as a valid JSON object with three keys: "courses", "competitions", and "projects". Each key should be an array of objects, with each object having "title", "description", and "link" properties. Use Google Search for real-time, relevant information.`;
-        
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
+    const handleDelete = async () => {
+        if (!achievementToDelete) return;
         try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    tools: [{ "google_search": {} }]
-                })
-            });
-
-            if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
-            
-            const result = await response.json();
-            const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-            
-            const jsonText = rawText.match(/{[\s\S]*}/)[0];
-            const parsedRecs = JSON.parse(jsonText);
-            setRecommendations(parsedRecs);
-
+            await deleteDoc(doc(db, "achievements", achievementToDelete.id));
         } catch (error) {
-            console.error("Failed to get recommendations:", error);
-            alert("Could not fetch recommendations at this time.");
+            console.error("Error deleting document:", error);
+            alert("Failed to delete achievement.");
         } finally {
-            setIsRecsLoading(false);
+            setAchievementToDelete(null);
         }
     };
 
-    const handleEdit = (achievement) => { setAchievementToEdit(achievement); setShowForm(true); };
-    const handleDelete = async () => { if (!achievementToDelete) return; try { await deleteDoc(doc(db, "achievements", achievementToDelete.id)); } catch (error) { console.error("Error deleting document:", error); alert("Failed to delete achievement."); } finally { setAchievementToDelete(null); } };
-    const handleFormClose = () => { setShowForm(false); setAchievementToEdit(null); };
-    const handleLogout = async () => { await auth.signOut(); navigate('/login'); };
+    const handleFormClose = () => {
+        setShowForm(false);
+        setAchievementToEdit(null);
+    };
 
     return (
-        <div className="container mx-auto p-4 md:p-8">
-            <header className="dashboard-header flex flex-col md:flex-row justify-between items-center mb-8 gap-4 opacity-0">
-                <div>
-                    <h1 className="text-3xl font-bold text-white">Student Dashboard</h1>
-                    <p className="text-cyan-400 text-xs md:text-sm break-all">UserID: {user?.uid}</p>
-                </div>
-                <div className='flex items-center gap-2'>
-                    <button onClick={() => navigate(`/portfolio/${user.uid}`)} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition">View My Portfolio</button>
-                    <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition">Logout</button>
-                </div>
-            </header>
-            
-            {/* Recommendations Hub */}
-            <div className="dashboard-content bg-gray-800/50 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-gray-700 mb-8 opacity-0">
-                <h2 className="text-2xl font-semibold text-white mb-4">Recommendations Hub</h2>
-                <p className="text-gray-400 text-sm mb-6">Based on your verified skills, here are some personalized recommendations to help you grow.</p>
-                <button onClick={handleGetRecommendations} disabled={isRecsLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-lg disabled:bg-indigo-800 disabled:cursor-not-allowed">
-                    {isRecsLoading ? 'Generating...' : 'Get Personalized Recommendations'}
-                </button>
-                {isRecsLoading && <Spinner />}
-                {recommendations && (
-                    <div className="mt-8">
-                        {recommendations.courses && (
-                            <div className="mb-6">
-                                <h3 className="text-xl font-bold text-cyan-400 mb-4">Recommended Courses</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {recommendations.courses.map((item, index) => <RecommendationCard key={`course-${index}`} item={item} type="Course" />)}
-                                </div>
-                            </div>
-                        )}
-                         {recommendations.competitions && (
-                            <div className="mb-6">
-                                <h3 className="text-xl font-bold text-yellow-400 mb-4">Upcoming Competitions</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {recommendations.competitions.map((item, index) => <RecommendationCard key={`comp-${index}`} item={item} type="Competition" />)}
-                                </div>
-                            </div>
-                        )}
-                         {recommendations.projects && (
-                            <div>
-                                <h3 className="text-xl font-bold text-indigo-400 mb-4">Project Ideas</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {recommendations.projects.map((item, index) => <RecommendationCard key={`proj-${index}`} item={item} type="Project" />)}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            <div className="dashboard-content text-center mb-8 opacity-0">
-                <button onClick={() => { setShowForm(true); setAchievementToEdit(null); }} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-lg">
-                    ＋ Add New Achievement
+        <div>
+            <div className="flex justify-between items-center mb-8">
+                <h1 className="text-2xl md:text-3xl font-bold text-white">My Achievements</h1>
+                <button onClick={() => { setShowForm(true); setAchievementToEdit(null); }} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-5 rounded-lg transition transform hover:scale-105 shadow-lg">
+                    ＋ Add New
                 </button>
             </div>
 
             {showForm && <AddAchievementForm user={user} onFormClose={handleFormClose} achievementToEdit={achievementToEdit} studentDetails={studentDetails} />}
             
-            <div className="dashboard-content mt-8 opacity-0">
-                <h2 className="text-2xl font-semibold mb-4 text-white">My Submissions</h2>
+            <div className="mt-8">
                 {isLoading ? <Spinner /> : (
                     achievements.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -442,5 +346,4 @@ const StudentDashboard = ({ user }) => {
     );
 };
 
-export default StudentDashboard;
-
+export default StudentAchievements;

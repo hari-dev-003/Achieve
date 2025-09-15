@@ -1,26 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { Toaster } from 'react-hot-toast';
 
-// Import Page Components from their new locations
+// Import Page Components
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import PublicPortfolio from './pages/PublicPortfolio';
 import Spinner from './components/Spinner';
 
 // Import student-specific pages
-import StudentDashboard from './pages/Student/StudentDashboard';
+import StudentLayout from './pages/Student/StudentLayout';
+import StudentProfile from './pages/Student/StudentProfile';
+import StudentAchievements from './pages/Student/StudentAchievements';
+import StudentRecommendations from './pages/Student/StudentRecommendations';
+import StudentPathway from './pages/Student/StudentPathway';
+import FindTeammates from './pages/Student/FindTeammates';
 
-// Import the new Faculty Layout and its nested pages
+// Import the Faculty Layout and its nested pages
 import FacultyLayout from './pages/Faculty/FacultyLayout';
 import FacultyProfile from './pages/Faculty/FacultyProfile';
 import FacultyApproval from './pages/Faculty/FacultyApproval';
 import FacultyClassView from './pages/Faculty/FacultyClassView';
-
-
-
 
 
 // --- Protected Route Component ---
@@ -79,19 +81,26 @@ const App = () => {
                     <Route path="/register" element={user ? <Navigate to="/" /> : <RegisterPage />} />
                     <Route path="/portfolio/:studentId" element={<PublicPortfolio />} />
 
-                    {/* Protected Student Route */}
+                    {/* Protected Student Routes with Nested Layout */}
                     <Route 
-                        path="/student-dashboard" 
+                        path="/student-dashboard"
                         element={
-                            <ProtectedRoute 
-                                user={user} 
-                                userRole={userRole} 
-                                requiredRole="student" 
+                            <ProtectedRoute
+                                user={user}
+                                userRole={userRole}
+                                requiredRole="student"
                                 isLoading={isLoading}
-                                component={StudentDashboard} 
+                                component={StudentLayout}
                             />
                         }
-                    />
+                    >
+                        <Route index element={<Navigate to="profile" replace />} />
+                        <Route path="profile" element={<StudentProfile />} />
+                        <Route path="achievements" element={<StudentAchievements />} />
+                        <Route path="recommendations" element={<StudentRecommendations />} />
+                        <Route path="pathway" element={<StudentPathway />} />
+                        <Route path="find-teammates" element={<FindTeammates />} />
+                    </Route>
 
                     {/* Protected Faculty Routes with Nested Layout */}
                     <Route 
