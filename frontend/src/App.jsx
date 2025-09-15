@@ -23,6 +23,8 @@ import FacultyLayout from './pages/Faculty/FacultyLayout';
 import FacultyProfile from './pages/Faculty/FacultyProfile';
 import FacultyApproval from './pages/Faculty/FacultyApproval';
 import FacultyClassView from './pages/Faculty/FacultyClassView';
+import FacultyReports from './pages/Faculty/FacultyReports';
+import FacultyAnalytics from './pages/Faculty/FacultyAnalytics';
 
 
 // --- Protected Route Component ---
@@ -69,7 +71,7 @@ const App = () => {
 
     return (
         <>
-            <Toaster 
+            <Toaster
                 position="top-center"
                 reverseOrder={false}
                 toastOptions={{ style: { background: '#333', color: '#fff' } }}
@@ -82,7 +84,7 @@ const App = () => {
                     <Route path="/portfolio/:studentId" element={<PublicPortfolio />} />
 
                     {/* Protected Student Routes with Nested Layout */}
-                    <Route 
+                    <Route
                         path="/student-dashboard"
                         element={
                             <ProtectedRoute
@@ -103,7 +105,7 @@ const App = () => {
                     </Route>
 
                     {/* Protected Faculty Routes with Nested Layout */}
-                    <Route 
+                    <Route
                         path="/faculty-dashboard"
                         element={
                             <ProtectedRoute
@@ -118,23 +120,25 @@ const App = () => {
                         <Route index element={<Navigate to="profile" replace />} />
                         <Route path="profile" element={<FacultyProfile />} />
                         <Route path="approval" element={<FacultyApproval />} />
-                        <Route path="class-view" element={<FacultyClassView />} /> 
+                        <Route path="class-view" element={<FacultyClassView />} />
+                        <Route path="reports" element={<FacultyReports />} />
+                        <Route path="analytics" element={<FacultyAnalytics />} />
                     </Route>
 
 
                     {/* Root path redirect logic */}
-                    <Route 
-                        path="/" 
+                    <Route
+                        path="/"
                         element={
-                            isLoading ? <div className="flex items-center justify-center h-screen bg-gray-900"><Spinner /></div> : 
+                            isLoading ? <div className="flex items-center justify-center h-screen bg-gray-900"><Spinner /></div> :
                             !user ? <Navigate to="/login" /> :
                             userRole === 'student' ? <Navigate to="/student-dashboard" /> :
                             userRole === 'faculty' ? <Navigate to="/faculty-dashboard" /> :
                             <Navigate to="/login" />
-                        } 
+                        }
                     />
                 </Routes>
-            
+           
         </>
     );
 };

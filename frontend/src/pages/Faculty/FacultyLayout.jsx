@@ -3,11 +3,12 @@ import { Outlet, useLocation, NavLink, useNavigate } from 'react-router-dom';
 import { getDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../../firebaseconfig';
 import Spinner from '../../components/Spinner';
+import toast from 'react-hot-toast';
 
 // --- Sidebar Navigation Link Component ---
 const SidebarLink = ({ to, icon, children }) => {
     const location = useLocation();
-    const isActive = location.pathname === to;
+    const isActive = location.pathname.includes(to);
     return (
         <NavLink
             to={to}
@@ -78,6 +79,12 @@ const FacultyLayout = ({ user }) => {
                     <SidebarLink to="/faculty-dashboard/class-view" icon={<span className="mr-3">📚</span>}>
                         Class View
                     </SidebarLink>
+                    <SidebarLink to="/faculty-dashboard/reports" icon={<span className="mr-3">📄</span>}>
+                        Reports
+                    </SidebarLink>
+                    <SidebarLink to="/faculty-dashboard/analytics" icon={<span className="mr-3">📊</span>}>
+                        Analytics
+                    </SidebarLink>
                 </nav>
                 <div className="hidden md:block mt-auto">
                     <button onClick={handleLogout} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition">
@@ -95,3 +102,4 @@ const FacultyLayout = ({ user }) => {
 };
 
 export default FacultyLayout;
+
