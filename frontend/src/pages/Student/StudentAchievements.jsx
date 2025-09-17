@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { db, auth } from '../../firebaseconfig';
 import { collection, query, where, onSnapshot, addDoc, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import Spinner from '../../components/Spinner';
@@ -124,6 +124,7 @@ const AddAchievementForm = ({ user, onFormClose, achievementToEdit, studentDetai
         setDescription("Analyzing certificate and generating with AI...");
 
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        // --- OPTIMIZATION: Switched to the faster gemini-2.5-flash-preview-05-20 model ---
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
         
         try {
@@ -347,3 +348,4 @@ const StudentAchievements = () => {
 };
 
 export default StudentAchievements;
+
